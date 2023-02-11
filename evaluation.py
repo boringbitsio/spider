@@ -685,6 +685,9 @@ def finalize(scores, etype, partial_types):
     for level in LEVELS:
         if scores[level]["count"] == 0:
             continue
+
+        scores[level]["parse"] /= scores[level]["count"]
+
         if etype in ["all", "exec"]:
             scores[level]["exec"] /= scores[level]["count"]
 
