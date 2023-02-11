@@ -455,8 +455,9 @@ class Evaluator:
                     }
                     for type_ in PARTIAL_TYPES
                 },
+                "parse": 0.0,
                 "exact": 0.0,
-                "exec": 0,
+                "exec": 0.0,
             }
             for level in LEVELS
         }
@@ -604,6 +605,8 @@ class Evaluator:
         parse_error = False
         try:
             p_sql = get_sql(schema, predicted)
+            self.scores[hardness]["parse"] += 1
+            self.scores["all"]["parse"] += 1
         except:
             # If p_sql is not valid, then we will use an empty sql to evaluate with the correct sql
             p_sql = {
@@ -632,14 +635,18 @@ class Evaluator:
         p_sql = rebuild_sql_col(p_valid_col_units, p_sql, kmap)
 
         if self.etype in ["all", "exec"]:
-            self.scores[hardness]["exec"] += eval_exec_match(
+            exec_score = eval_exec_match(
                 self.db_paths[db_name], predicted, gold, p_sql, g_sql
             )
+            self.scores[hardness]["exec"] += exec_score
+            self.scores["all"]["exec"] += exec_score
 
         if self.etype in ["all", "match"]:
             partial_scores = self.eval_partial_match(p_sql, g_sql)
             exact_score = self.eval_exact_match(p_sql, g_sql, partial_scores)
-            update_scores_match(self.scores, exact_score, hardness, partial_scores, PARTIAL_TYPES)
+            update_scores_match(
+                self.scores, exact_score, hardness, partial_scores, PARTIAL_TYPES
+            )
 
         return {
             "predicted": predicted,
@@ -659,31 +666,19 @@ def update_scores_match(scores, exact_score, hardness, partial_scores, partial_t
     scores["all"]["exact"] += exact_score
     for type_ in partial_types:
         if partial_scores[type_]["pred_total"] > 0:
-            scores[hardness]["partial"][type_]["acc"] += partial_scores[
-                type_
-            ]["acc"]
+            scores[hardness]["partial"][type_]["acc"] += partial_scores[type_]["acc"]
             scores[hardness]["partial"][type_]["acc_count"] += 1
         if partial_scores[type_]["label_total"] > 0:
-            scores[hardness]["partial"][type_]["rec"] += partial_scores[
-                type_
-            ]["rec"]
+            scores[hardness]["partial"][type_]["rec"] += partial_scores[type_]["rec"]
             scores[hardness]["partial"][type_]["rec_count"] += 1
-        scores[hardness]["partial"][type_]["f1"] += partial_scores[type_][
-            "f1"
-        ]
+        scores[hardness]["partial"][type_]["f1"] += partial_scores[type_]["f1"]
         if partial_scores[type_]["pred_total"] > 0:
-            scores["all"]["partial"][type_]["acc"] += partial_scores[
-                type_
-            ]["acc"]
+            scores["all"]["partial"][type_]["acc"] += partial_scores[type_]["acc"]
             scores["all"]["partial"][type_]["acc_count"] += 1
         if partial_scores[type_]["label_total"] > 0:
-            scores["all"]["partial"][type_]["rec"] += partial_scores[
-                type_
-            ]["rec"]
+            scores["all"]["partial"][type_]["rec"] += partial_scores[type_]["rec"]
             scores["all"]["partial"][type_]["rec_count"] += 1
-        scores["all"]["partial"][type_]["f1"] += partial_scores[type_][
-            "f1"
-        ]
+        scores["all"]["partial"][type_]["f1"] += partial_scores[type_]["f1"]
 
 
 def finalize(scores, etype, partial_types):
@@ -700,32 +695,32 @@ def finalize(scores, etype, partial_types):
                     scores[level]["partial"][type_]["acc"] = 0
                 else:
                     scores[level]["partial"][type_]["acc"] = (
-                            scores[level]["partial"][type_]["acc"]
-                            / scores[level]["partial"][type_]["acc_count"]
-                            * 1.0
+                        scores[level]["partial"][type_]["acc"]
+                        / scores[level]["partial"][type_]["acc_count"]
+                        * 1.0
                     )
                 if scores[level]["partial"][type_]["rec_count"] == 0:
                     scores[level]["partial"][type_]["rec"] = 0
                 else:
                     scores[level]["partial"][type_]["rec"] = (
-                            scores[level]["partial"][type_]["rec"]
-                            / scores[level]["partial"][type_]["rec_count"]
-                            * 1.0
+                        scores[level]["partial"][type_]["rec"]
+                        / scores[level]["partial"][type_]["rec_count"]
+                        * 1.0
                     )
                 if (
-                        scores[level]["partial"][type_]["acc"] == 0
-                        and scores[level]["partial"][type_]["rec"] == 0
+                    scores[level]["partial"][type_]["acc"] == 0
+                    and scores[level]["partial"][type_]["rec"] == 0
                 ):
                     scores[level]["partial"][type_]["f1"] = 1
                 else:
                     scores[level]["partial"][type_]["f1"] = (
-                            2.0
-                            * scores[level]["partial"][type_]["acc"]
-                            * scores[level]["partial"][type_]["rec"]
-                            / (
-                                    scores[level]["partial"][type_]["rec"]
-                                    + scores[level]["partial"][type_]["acc"]
-                            )
+                        2.0
+                        * scores[level]["partial"][type_]["acc"]
+                        * scores[level]["partial"][type_]["rec"]
+                        / (
+                            scores[level]["partial"][type_]["rec"]
+                            + scores[level]["partial"][type_]["acc"]
+                        )
                     )
 
 
@@ -1079,7 +1074,7 @@ def build_foreign_key_map_from_json(table):
 
 
 def main(gold, pred, db_dir, table, etype, output):
-    if etype not in ['match', 'exec', 'all']:
+    if etype not in ["match", "exec", "all"]:
         raise ValueError()
     kmaps = build_foreign_key_map_from_json(table)
 
